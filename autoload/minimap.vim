@@ -94,7 +94,10 @@ function! s:Minimap.on_slave_started(slave_servername)
 
     " Let a slave server open a same file.
     augroup minimap
-        autocmd BufReadPost * call s:Minimap.sendexcmd('edit! `='.string(expand('<afile>')).'`')
+        autocmd BufReadPost,BufEnter *
+        \     if filereadable(expand('<afile>'))
+        \   |     call s:Minimap.sendexcmd('edit! `='.string(fnamemodify(expand('<afile>'), ':p')).'`')
+        \   | endif
     augroup END
 
     call self.align_to_right()
