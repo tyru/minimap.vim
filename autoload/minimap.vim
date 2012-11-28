@@ -100,6 +100,12 @@ function! s:Minimap.on_slave_started(slave_servername)
         \   | endif
     augroup END
 
+    " Let a slave server sync a view of a current file.
+    augroup minimap
+        autocmd CursorMoved *
+        \   call s:Minimap.sendexcmd('call winrestview('.string(winsaveview()).')')
+    augroup END
+
     call self.align_to_right()
 
     " Make a master Vim foreground.
