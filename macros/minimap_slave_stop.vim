@@ -7,7 +7,7 @@ set cpo&vim
 " }}}
 
 
-function! SlaveStopped(master_servername)
+function! MinimapSlaveStopped(master_servername)
     augroup minimap-slave
         autocmd!
         autocmd RemoteReply *

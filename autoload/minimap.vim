@@ -61,7 +61,7 @@ function! s:Minimap.start()
     " Spawn a slave server.
     let srvname = self.generate_available_servername()
     let slave_start_script = s:get_slave_start_script()
-    call s:spawn(['gvim', '--servername', srvname, '-S', slave_start_script, '-c', 'call SlaveStarted('.string(v:servername).')'])
+    call s:spawn(['gvim', '--servername', srvname, '-S', slave_start_script, '-c', 'call MinimapSlaveStarted('.string(v:servername).')'])
     let self._state = s:STATE_STARTING
     let self._slave_srvname = srvname
 endfunction
@@ -96,14 +96,18 @@ function! s:Minimap.on_slave_started(slave_servername)
     augroup minimap
         autocmd BufReadPost,BufEnter *
         \     if filereadable(expand('<afile>'))
-        \   |     call s:Minimap.sendexcmd('edit! `='.string(fnamemodify(expand('<afile>'), ':p')).'`')
+        \   |     call s:Minimap.sendexcmd('silent edit! `='.string(fnamemodify(expand('<afile>'), ':p')).'`')
         \   | endif
     augroup END
 
     " Let a slave server sync a view of a current file.
     augroup minimap
         autocmd CursorMoved *
-        \   call s:Minimap.sendexcmd('call winrestview('.string(winsaveview()).')')
+        \     let s:file = tempname()
+        \   | execute 'mkview' s:file
+        \   | call s:Minimap.sendexcmd('source `='.string(s:file).'`')
+        \   | silent! call delete(s:file)
+        \   | unlet s:file
     augroup END
 
     call self.align_to_right()
@@ -177,7 +181,7 @@ function! s:Minimap.stop()
     " Kill a slave server.
     let slave_stop_script = s:get_slave_stop_script()
     call self.sendexcmd('source '.slave_stop_script)
-    call self.sendexcmd('call SlaveStopped('.string(v:servername).')')
+    call self.sendexcmd('call MinimapSlaveStopped('.string(v:servername).')')
     call self.sendexcmd('qa!')
     let self._state = s:STATE_STOPPING
 endfunction
@@ -204,7 +208,7 @@ function! s:Minimap.send(string, ...)
 endfunction
 
 function! s:Minimap.sendexcmd(string, ...)
-    let string = printf('<C-\><C-g>:<C-u>%s<CR>', a:string)
+    let string = printf('<C-\><C-g>:<C-u>silent %s<CR>', a:string)
     return call(self.send, [string] + a:000, self)
 endfunction
 

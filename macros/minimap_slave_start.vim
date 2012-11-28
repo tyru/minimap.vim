@@ -7,7 +7,7 @@ set cpo&vim
 " }}}
 
 
-function! SlaveStarted(master_servername)
+function! MinimapSlaveStarted(master_servername)
     augroup minimap-slave
         autocmd!
         autocmd RemoteReply *
@@ -18,7 +18,7 @@ function! SlaveStarted(master_servername)
     call remote_send(a:master_servername, '<C-\><C-g><C-l>:<C-u>call minimap#_slave_started('.string(v:servername).')<CR><C-l>')
 
     let &titlestring = 'Slave pid:'.getpid().', Master pid:'.remote_expr(a:master_servername, 'getpid()')
-    call s:fontzoom(5, 0)
+    call MinimapSlaveFontZoom(5, 0)
 endfunction
 
 
@@ -39,7 +39,7 @@ function! s:change_fontsize(font, size)
     \ string('\=max([1,' . a:size . '])'))), ',')
 endfunction
 
-function! s:fontzoom(size, reset)
+function! MinimapSlaveFontZoom(size, reset)
     if s:FONTZOOM_PATTERN ==# '*Unknown system*'
         echoerr 'minimap: Could not detect your environment.'
         return
