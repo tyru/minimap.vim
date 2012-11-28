@@ -16,6 +16,8 @@ function! SlaveStarted(master_servername)
         \   | endif
     augroup END
     call remote_send(a:master_servername, '<C-\><C-g><C-l>:<C-u>call minimap#_slave_started('.string(v:servername).')<CR><C-l>')
+
+    let &titlestring = 'Slave pid:'.getpid().', Master pid:'.remote_expr(a:master_servername, 'getpid()')
 endfunction
 
 

@@ -40,7 +40,11 @@ let s:Minimap = {
 
 function! s:Minimap.start()
     if self._state is s:STATE_STARTING
-        call self.force_stop()
+    \   && self.has_server(self._slave_srvname)
+        call s:error('minimap: Could not start; '.string(self._slave_srvname).' is not responding but alive')
+        let self._state = s:STATE_STOPPED
+        let self._slave_srvname = ''
+        return
     endif
     if self._state isnot s:STATE_STOPPED
         return
@@ -60,16 +64,6 @@ function! s:Minimap.start()
     call s:spawn(['gvim', '--servername', srvname, '-S', slave_start_script, '-c', 'call SlaveStarted('.string(v:servername).')'])
     let self._state = s:STATE_STARTING
     let self._slave_srvname = srvname
-endfunction
-
-function! s:Minimap.force_stop()
-    if self.has_server(self._slave_srvname)
-        throw 'minimap: Could not force stop; '.string(self._slave_srvname).' is not responding but alive'
-    endif
-    let self._state = s:STATE_STOPPED
-    let self._slave_srvname = ''
-
-    echomsg 'forcefully stopping a previous slave ... done.'
 endfunction
 
 function! s:get_slave_start_script()
@@ -93,10 +87,57 @@ function! s:Minimap.on_slave_started(slave_servername)
     let self._state = s:STATE_STARTED
     let self._slave_srvname = a:slave_servername
 
+    " If a master quits, a slave also quits.
+    augroup minimap
+        autocmd VimLeavePre * call s:Minimap.stop()
+    augroup END
+
     " Let a slave server open a same file.
     augroup minimap
         autocmd BufReadPost * call s:Minimap.sendexcmd('edit! `='.string(expand('<afile>')).'`')
     augroup END
+
+    call self.align_to_right()
+
+    " Make a master Vim foreground.
+    call foreground()
+endfunction
+
+function! s:Minimap.align_to_left()
+    " TODO
+    echoerr 's:Minimap.align_to_left() is not implemented yet!'
+endfunction
+
+function! s:Minimap.align_to_right()
+    if !executable('xwininfo') || !exists('$WINDOWID')
+        call s:error('minimap: Cannot align to right (need ''xwininfo'' and $WINDOWID)')
+        call s:warn('minimap: fallback to aligning to left...')
+        sleep 2
+        return self.align_to_left()
+    endif
+
+    " Get master Vim's GUI window width.
+    let xwininfo = system('xwininfo -id $WINDOWID')
+    let rx_width = 'Width: \(\d\+\)'
+    let master_width = get(matchlist(get(filter(split(xwininfo, '\n'), 'v:val =~# rx_width'), 0, ''), rx_width), 1, '')
+    if master_width ==# ''
+        call s:error('minimap: Cannot get a GUI window width.')
+        call s:warn('minimap: fallback to aligning to left...')
+        sleep 2
+        return self.align_to_left()
+    endif
+
+    return
+    " Make a space for a slave Vim.
+    let SLAVE_GVIM_WIDTH = 25    " TODO: SLAVE_GVIM_WIDTH -> global variable
+    let &columns -= SLAVE_GVIM_WIDTH
+
+    " Let a slave Vim align to a master Vim.
+    call self.sendexcmd('set columns='.SLAVE_GVIM_WIDTH)
+    call self.sendexcmd('set lines='.&lines)
+    " TODO: Support MacVim :winpos x,y flipped bug?
+    " call self.sendexcmd(printf('silent winpos %d %d', getwinposx()+master_width, getwinposy()))
+    call self.sendexcmd(printf('silent winpos %d %d', master_width-SLAVE_GVIM_WIDTH, getwinposy()))
 endfunction
 
 function! s:Minimap.on_slave_stopped(slave_servername)
@@ -116,12 +157,9 @@ function! s:nop(...)
 endfunction
 
 function! s:Minimap.stop()
-    if self._state is s:STATE_STOPPING
-        try
-            call self.force_stop()
-        catch
-            " A slave server is alive. continue...
-        endtry
+    if !self.has_server(self._slave_srvname)
+        call self.slave_finalize()
+        return
     endif
     if self._state is s:STATE_STOPPED
         return
@@ -161,6 +199,24 @@ function! s:Minimap.sendexcmd(string, ...)
     return call(self.send, [string] + a:000, self)
 endfunction
 
+function! s:error(msg)
+    echohl Error
+    try
+        echomsg a:msg
+    finally
+        echohl None
+    endtry
+endfunction
+
+function! s:warn(msg)
+    echohl WarningMsg
+    try
+        echomsg a:msg
+    finally
+        echohl None
+    endtry
+endfunction
+
 " from restart.vim {{{
 let s:is_win = has('win16') || has('win32') || has('win64')
 
@@ -173,7 +229,6 @@ function! s:spawn(args)
     elseif has('gui_macvim')
         macaction newWindow:
     else
-        PP! printf('silent !%s %s', command, join(cmdargs))
         execute printf('silent !%s %s', command, join(cmdargs))
     endif
 endfunction
