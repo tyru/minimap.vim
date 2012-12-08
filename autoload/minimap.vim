@@ -140,7 +140,11 @@ function! s:Minimap.align_to_right()
         return self.align_to_left()
     endif
 
+    " ============== DEBUG ==============
     return
+    " XXX: Does not work below code now
+    " ============== DEBUG ==============
+
     " Make a space for a slave Vim.
     let SLAVE_GVIM_WIDTH = 25    " TODO: SLAVE_GVIM_WIDTH -> global variable
     let &columns -= SLAVE_GVIM_WIDTH
