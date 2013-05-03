@@ -122,15 +122,15 @@ function! s:Minimap.align_to_left()
 endfunction
 
 function! s:Minimap.align_to_right()
-    if !executable('xwininfo') || !exists('$WINDOWID')
-        call s:error('minimap: Cannot align to right (need ''xwininfo'' and $WINDOWID)')
+    if !executable('xwininfo')
+        call s:error('minimap: Cannot align to right (need ''xwininfo'')')
         call s:warn('minimap: fallback to aligning to left...')
         sleep 2
         return self.align_to_left()
     endif
 
     " Get master Vim's GUI window width.
-    let xwininfo = system('xwininfo -id $WINDOWID')
+    let xwininfo = system('xwininfo -id '.v:windowid)
     let rx_width = 'Width: \(\d\+\)'
     let master_width = get(matchlist(get(filter(split(xwininfo, '\n'), 'v:val =~# rx_width'), 0, ''), rx_width), 1, '')
     if master_width ==# ''
